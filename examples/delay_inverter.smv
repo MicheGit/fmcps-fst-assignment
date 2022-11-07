@@ -1,0 +1,28 @@
+MODULE delay(input)
+    -- Model of the delay component
+    VAR
+        x : boolean;
+    ASSIGN
+        init(x) := FALSE;
+        next(x) := input;
+    DEFINE
+        out := x;
+ 
+MODULE relay(input)
+    -- Model of the relay
+    DEFINE
+        out := input; 
+        
+MODULE inverter(input)
+    -- Model of the inverter
+    DEFINE
+        out := !input; 
+
+
+MODULE main
+    -- Composition of delay and inverter
+    VAR
+        del : delay(inv.out);
+        inv : inverter(del.out);
+        
+INVARSPEC inv.out = !del.out

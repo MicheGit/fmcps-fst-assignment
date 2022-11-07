@@ -1,0 +1,49 @@
+MODULE train(signal)
+    -- Model of the train
+    VAR
+        mode : {away, wait, bridge};
+        out : {none, arrive, leave};
+    ASSIGN
+        init(mode) := away;
+        out := case
+            mode = away     : {none, arrive};
+            mode = bridge   : {none, leave};
+            TRUE            : none;
+        esac;
+        next(mode) := case
+            mode = away & out = arrive      : wait;
+            mode = wait & signal = green    : bridge;
+            mode = bridge & out = leave     : away;
+            TRUE                            : mode;
+        esac;
+
+MODULE controller(out_w, out_e)
+    -- First model of the controller
+    VAR
+        west    : {green, red};
+        east    : {green, red};
+    ASSIGN
+        init(west) := green;
+        init(east) := green;
+        next(west) := case
+            out_e = leave  : green;
+            out_e = arrive   : red;
+            TRUE            : west;
+        esac;
+        next(east) := case
+            out_w = leave   : green;
+            out_e != arrive & out_w = arrive    : red;
+            TRUE            : east;
+        esac;
+    DEFINE
+        signal_w := west;
+        signal_e := east;
+
+MODULE main
+    -- Composition of train_W, train_E and controller
+    VAR
+        train_w : train(contr.signal_w);
+        train_e : train(contr.signal_e);
+        contr   : controller(train_w.out, train_e.out);
+        
+INVARSPEC !(train_w.mode = bridge & train_e.mode = bridge)
