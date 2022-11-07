@@ -70,18 +70,20 @@ def check_explain_inv_spec(spec):
 
     # We put in our execution path one of the invalid states that we reached
     last_state = fsm_model.pick_one_state(invalid_final_states)
-    counter_example = ""
+    counter_example = []
     # We follow the execution trace in reverse order
     for i, states_from in reversed(list(enumerate(trace))):
         # We get a state that we could have come from
         current_state = fsm_model.pick_one_state(states_from.intersection(last_state)) # Fixme
 
         # Update the counter example with the current state + transition that got us there
-        message = "State {}:\n\t{}\n\n".format(i + 1, current_state.get_str_values())
-        counter_example = message + counter_example
+        counter_example.append(current_state.get_str_values())
 
         # Update the current state
         last_state = fsm_model.pre(current_state)
+    
+    # We need to reverse the counterexample list
+    counter_example = list(reversed(counter_example))
 
     return False, counter_example
 
