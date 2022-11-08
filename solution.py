@@ -62,29 +62,40 @@ def check_explain_inv_spec(spec):
     if is_satisfied:
         return True, None
 
-    # We check if inputs are supported
+    # We check if inputs are supported (IVAR)
     accepts_input = len(fsm_model.bddEnc.inputsVars) > 0
 
     # We pick all the final states that invalidate the spec
-    invalid_final_states = current_states.intersection(negated_spec)
+    invalid_final_states = fsm_model.pre(trace[-1])
 
     # We put in our execution path one of the invalid states that we reached
-    last_state = fsm_model.pick_one_state(invalid_final_states)
-    counter_example = []
+    next_state = fsm_model.pick_one_state(invalid_final_states)
+    last_state = fsm_model.pre(next_state)
+    counter_example = [next_state.get_str_values()]
     # We follow the execution trace in reverse order
-    for i, states_from in reversed(list(enumerate(trace))):
+    for states_from in reversed(trace[:-1]):
         # We get a state that we could have come from
-        current_state = fsm_model.pick_one_state(states_from.intersection(last_state)) # Fixme
+        current_state = fsm_model.pick_one_state(states_from.intersection(last_state))
 
         # Update the counter example with the current state + transition that got us there
         counter_example.append(current_state.get_str_values())
+        # FIXME: This shouldent crash
+        if accepts_input:
+            try:
+                inputs = fsm_model.get_inputs_between_states(current, last_state)
+                input_bello_figo_gu = fsm_model.pick_one_inputs(inputs)
+                counter_example.append(input_bello_figo_gu.get_str_values())
+                print("Ok")
+            except:
+                print("Err")
 
         # Update the current state
+        next_state = current_state
         last_state = fsm_model.pre(current_state)
     
     # We need to reverse the counterexample list
     counter_example = list(reversed(counter_example))
-
+    print(len(counter_example))
     return False, counter_example
 
 if len(sys.argv) != 2:

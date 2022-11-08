@@ -41,6 +41,8 @@ MODULE controller(out_w, out_e)
 
 MODULE main
     -- Composition of train_W, train_E and controller
+    IVAR
+      a : boolean;
     VAR
         train_w : train(contr.signal_w);
         train_e : train(contr.signal_e);
