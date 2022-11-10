@@ -2,6 +2,8 @@ import pynusmv
 import sys
 
 def pretty_print_trace(trace):
+    print(trace)
+    return
     """
     A trace is a list of dictionaries. This function prints the 
     list as nusmv would
@@ -85,48 +87,83 @@ def check_explain_inv_spec(spec):
     # If we are satisfying the specification on every reachable states we just return true
     if is_satisfied:
         return True, None
-
-    # We check if inputs are supported (IVAR)
-    accepts_input = len(fsm_model.bddEnc.inputsVars) > 0
-
-    # We pick all the final states that invalidate the spec
-    invalid_final_states = fsm_model.pre(trace[-1])
-
-    # We choose one of the invalid states that we reached
-    #  starting from it, we will retrace our steps to the init state
-    next_state = fsm_model.pick_one_state(invalid_final_states)
-    previous_states = fsm_model.pre(next_state)
-    print(next_state.get_str_values())
-    counter_example = [{
-        "state": next_state.get_str_values()
-    }]
-    # We follow the execution trace in reverse order skipping the last two sets of states
-    #   - the last one because it is a false bdd
-    #   - the second-to-last one because we picked the last state from it
-    for current_states in reversed(trace[:-2]):
-        # We get a state that we could have come from
-        chosen_state = fsm_model.pick_one_state(current_states.intersection(previous_states))
-
-        # Update the counter example with the current state + transition that got us there
-        trace_node = {
-            "state": chosen_state.get_str_values()
-        }
-
-        if accepts_input:
-            possible_inputs = fsm_model.get_inputs_between_states(chosen_state, next_state)
-            trace_node.update({
-                "inputs": fsm_model.pick_one_inputs(possible_inputs).get_str_values()
-            })
-
-        # We move to the previous step in the trace...
-        counter_example.append(trace_node)
-        next_state = chosen_state
-        previous_states = fsm_model.pre(chosen_state)
     
-    # We need to reverse the counterexample list
+    # Does the model support inputs?
+    has_inputs = len(fsm_model.bddEnc.inputsVars) > 0
 
-    counter_example = list(reversed(counter_example))
+    counter_example = []
+    last = fsm_model.pick_one_state(current_states.intersection(negated_spec))
+    
+    # Store the last state obiuvsly
+    counter_example.append(last.get_str_values())
+
+    next = last
+    last = fsm_model.pre(next)
+
+    for current in reversed(trace[:-1]):
+        intersect = current.intersection(last)
+        state = fsm_model.pick_one_state(intersect)
+        if has_inputs:
+            #Get the possible inputs from the current state and the next one
+            #and insert it in the counter_example
+            inputs = fsm_model.get_inputs_between_states(state, next)
+            counter_example.insert(0, fsm_model.pick_one_inputs(inputs).get_str_values())
+           
+                                       
+        #Insert the current state
+        counter_example.insert(0, state.get_str_values())
+        #Update the next state with the current one
+        next = state
+        #Find the states that goes into current state
+        last = fsm_model.pre(next)
+
     return False, counter_example
+
+
+def find_counter_example(fsm, bdd_spec, last_bdd, execution):
+    """
+        Given the FSM of the model, the BDD of the property, the region
+        where the property is not satisfied, that is where the negation of the property
+        is satisfied, and a list of all the post operations, compute the counter-example. 
+    """
+    #Store the counter-example
+    counter_example = []
+    """
+        Check if the model has inputs. The functions that works on inputs give an error
+        if the model hasn't input variables.
+    """
+    has_inputs = len(fsm.bddEnc.inputsVars) > 0
+    #We pick a state that doesn't satisfy the property
+    last = fsm.pick_one_state(last_bdd.intersection(~bdd_spec))
+    #We add to our counter_example
+    counter_example.append(last.get_str_values())
+    #Is the current BDD
+    next = last
+    #Last is the BDD of the pre operation
+    last = fsm.pre(next)
+    #We start from the second to last position, given that we already have choose a state for the last position
+    i = len(execution) - 2
+    
+    #While we have not intersected all the BDD of the post-operations
+    while i >= 0:
+        intersect = execution[i].intersection(last)
+        state = fsm.pick_one_state(intersect)
+        if has_inputs:
+            #Get the possible inputs from the current state and the next one
+            #and insert it in the counter_example
+            inputs = fsm.get_inputs_between_states(state, next)
+            counter_example.insert(0, fsm.pick_one_inputs(inputs).get_str_values())
+        else:
+            counter_example.insert(0, {})
+        #Insert the current state
+        counter_example.insert(0, state.get_str_values())
+        #Update the next state with the current one
+        next = state
+        #Find the states that goes into current state
+        last = fsm.pre(next)
+        i -= 1
+
+    return counter_example
 
 if len(sys.argv) != 2:
     print("Usage:", sys.argv[0], "filename.smv")
