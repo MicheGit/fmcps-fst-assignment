@@ -2,12 +2,11 @@ import pynusmv
 import sys
 
 def pretty_print_trace(trace):
-    print(trace)
-    return
     """
     A trace is a list of dictionaries. This function prints the 
     list as nusmv would
     """
+    
     last_printed = dict()
     for i in range(0, len(trace)):
         step = trace[i]
@@ -40,12 +39,10 @@ def check_explain_inv_spec(spec):
     spec, that is, whether all reachable states of the model satisfies spec
     or not. Return also an explanation for why the model does not satisfy
     spec``, if it is the case, or `None otherwise.
-
     The result is a tuple where the first element is a boolean telling
     whether spec is satisfied, and the second element is either None if the
     first element is True``, or an execution of the SMV model violating `spec
     otherwise.
-
     The execution is a tuple of alternating states and inputs, starting
     and ennding with a state. States and inputs are represented by dictionaries
     where keys are state and inputs variable of the loaded SMV model, and values
@@ -93,9 +90,14 @@ def check_explain_inv_spec(spec):
 
     counter_example = []
     last = fsm_model.pick_one_state(current_states.intersection(negated_spec))
+
+    ##TESTING TRACE##
+    trace_node = {
+            "state": last.get_str_values()
+        }
     
     # Store the last state obiuvsly
-    counter_example.append(last.get_str_values())
+    counter_example.append(trace_node)
 
     next = last
     last = fsm_model.pre(next)
@@ -103,14 +105,25 @@ def check_explain_inv_spec(spec):
     for current in reversed(trace[:-1]):
         intersect = current.intersection(last)
         state = fsm_model.pick_one_state(intersect)
+
         if has_inputs:
             #Get the possible inputs from the current state and the next one
             #and insert it in the counter_example
             inputs = fsm_model.get_inputs_between_states(state, next)
-            counter_example.insert(0, fsm_model.pick_one_inputs(inputs).get_str_values())
+            trace_node.update({
+                "inputs": fsm_model.pick_one_inputs(inputs).get_str_values()
+            })
+            #counter_example.insert(0, fsm_model.pick_one_inputs(inputs).get_str_values())
+            
+        trace_node = {
+            "state": state.get_str_values()
+        }
                                        
         #Insert the current state
-        counter_example.insert(0, state.get_str_values())
+        counter_example.insert(0, trace_node)
+
+        # counter_example.insert(0, state.get_str_values())
+        
         #Update the next state with the current one
         next = state
         #Find the states that goes into current state

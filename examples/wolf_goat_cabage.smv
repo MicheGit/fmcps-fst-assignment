@@ -1,0 +1,59 @@
+MODULE state(move)
+    VAR
+        cabbage : {left, right};
+        goat    : {left, right};
+        wolf    : {left, right};
+        farmer  : {left, right};
+
+    ASSIGN
+        init(cabbage) := left;
+        init(goat)    := left;
+        init(wolf)    := left;
+        init(farmer)  := left;
+
+        next(cabbage) := case
+            move = try_cabbage & farmer = cabbage : next(farmer);
+            TRUE                                  : cabbage;
+        esac;
+
+        next(goat) := case
+            move = try_goat & farmer = goat : next(farmer);
+            TRUE                            : goat;
+        esac;
+
+        next(wolf) := case
+            move = try_wolf & farmer = wolf : next(farmer);
+            TRUE                            : wolf;
+        esac;
+
+        next(farmer) := case
+            farmer = left  : right;
+            farmer = right : left;
+        esac;
+
+MODULE ai
+    IVAR
+        move : {try_cabbage, try_goat, try_wolf, none};
+
+MODULE checker(a, b, famer)
+    VAR
+        fail: boolean;
+
+    ASSIGN
+        init(fail) := FALSE;
+
+        next(fail) := case
+            a = b & a != famer : TRUE;
+            fail               : TRUE;
+            TRUE               : FALSE;
+        esac;
+
+MODULE main
+    VAR
+        ai: ai();
+        state: state(ai.move);
+
+        check_a : checker(state.cabbage, state.goat, state.farmer);
+        check_b : checker(state.goat, state.wolf, state.farmer);
+
+INVARSPEC !(!check_a.fail & !check_b.fail & state.goat = right & state.cabbage = right & state.wolf = right)
