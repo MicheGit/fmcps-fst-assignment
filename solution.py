@@ -96,6 +96,7 @@ def check_explain_inv_spec(spec):
     #  starting from it, we will retrace our steps to the init state
     next_state = fsm_model.pick_one_state(invalid_final_states)
     previous_states = fsm_model.pre(next_state)
+    print(next_state.get_str_values())
     counter_example = [{
         "state": next_state.get_str_values()
     }]
