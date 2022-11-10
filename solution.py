@@ -102,7 +102,7 @@ def check_explain_inv_spec(spec):
     # We follow the execution trace in reverse order skipping the last two sets of states
     #   - the last one because it is a false bdd
     #   - the second-to-last one because we picked the last state from it
-    for current_states in reversed(trace[:-1]):
+    for current_states in reversed(trace[:-2]):
         # We get a state that we could have come from
         chosen_state = fsm_model.pick_one_state(current_states.intersection(previous_states))
 
