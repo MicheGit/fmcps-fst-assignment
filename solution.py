@@ -1,6 +1,30 @@
 import pynusmv
 import sys
 
+def pretty_print_trace(trace):
+    """
+    A trace is a list of dictionaries. This function prints the 
+    list as nusmv would
+    """
+    last_printed = dict()
+    for i in range(0, len(trace)):
+        step = trace[i]
+        if "inputs" in step:
+            print("-------INPUTS {} ------".format(i))
+            for key in step["inputs"]:
+                #if last_printed.get(key) != step["inputs"].get(key):
+                    # We are not going to print duplicate values
+                    print("\t{} = {}".format(key, step["inputs"].get(key)))
+            #last_printed.update(step["inputs"])
+
+        print("-------STATE {} ------".format(i))
+        for key in step["state"]:
+            #if last_printed.get(key) != step["state"].get(key):
+                # We are not going to print duplicate values
+                print("\t{} = {}".format(key, step["state"].get(key)))
+        #last_printed.update(step["state"])
+
+
 def spec_to_bdd(model, spec):
     """
     Return the set of states of model satisfying spec, as a BDD.
@@ -68,34 +92,39 @@ def check_explain_inv_spec(spec):
     # We pick all the final states that invalidate the spec
     invalid_final_states = fsm_model.pre(trace[-1])
 
-    # We put in our execution path one of the invalid states that we reached
+    # We choose one of the invalid states that we reached
+    #  starting from it, we will retrace our steps to the init state
     next_state = fsm_model.pick_one_state(invalid_final_states)
-    last_state = fsm_model.pre(next_state)
-    counter_example = [next_state.get_str_values()]
-    # We follow the execution trace in reverse order
-    for states_from in reversed(trace[:-1]):
+    previous_states = fsm_model.pre(next_state)
+    counter_example = [{
+        "state": next_state.get_str_values()
+    }]
+    # We follow the execution trace in reverse order skipping the last two sets of states
+    #   - the last one because it is a false bdd
+    #   - the second-to-last one because we picked the last state from it
+    for current_states in reversed(trace[:-2]):
         # We get a state that we could have come from
-        current_state = fsm_model.pick_one_state(states_from.intersection(last_state))
+        chosen_state = fsm_model.pick_one_state(current_states.intersection(previous_states))
 
         # Update the counter example with the current state + transition that got us there
-        counter_example.append(current_state.get_str_values())
-        # FIXME: This shouldent crash
-        if accepts_input:
-            try:
-                inputs = fsm_model.get_inputs_between_states(current, last_state)
-                input_bello_figo_gu = fsm_model.pick_one_inputs(inputs)
-                counter_example.append(input_bello_figo_gu.get_str_values())
-                print("Ok")
-            except:
-                print("Err")
+        trace_node = {
+            "state": chosen_state.get_str_values()
+        }
 
-        # Update the current state
-        next_state = current_state
-        last_state = fsm_model.pre(current_state)
+        if accepts_input:
+            possible_inputs = fsm_model.get_inputs_between_states(chosen_state, next_state)
+            trace_node.update({
+                "inputs": fsm_model.pick_one_inputs(possible_inputs).get_str_values()
+            })
+
+        # We move to the previous step in the trace...
+        trace.append(trace_node)
+        next_state = chosen_state
+        previous_states = fsm_model.pre(chosen_state)
     
     # We need to reverse the counterexample list
+
     counter_example = list(reversed(counter_example))
-    print(len(counter_example))
     return False, counter_example
 
 if len(sys.argv) != 2:
@@ -116,7 +145,7 @@ for prop in pynusmv.glob.prop_database():
             print("Invariant is respected")
         else:
             print("Invariant is not respected")
-            print(trace)
+            pretty_print_trace(trace)
     else:
         print("Property", spec, "is not an INVARSPEC, skipped.")
 
