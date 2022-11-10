@@ -10,19 +10,19 @@ def pretty_print_trace(trace):
     for i in range(0, len(trace)):
         step = trace[i]
         if "inputs" in step:
-            print("-------INPUTS {} ------".format(i))
+            print("-------INPUTS {} ------".format(i + 1))
             for key in step["inputs"]:
-                #if last_printed.get(key) != step["inputs"].get(key):
+                if last_printed.get(key) != step["inputs"].get(key):
                     # We are not going to print duplicate values
                     print("\t{} = {}".format(key, step["inputs"].get(key)))
-            #last_printed.update(step["inputs"])
+            last_printed.update(step["inputs"])
 
-        print("-------STATE {} ------".format(i))
+        print("-------STATE {} ------".format(i + 1))
         for key in step["state"]:
-            #if last_printed.get(key) != step["state"].get(key):
+            if last_printed.get(key) != step["state"].get(key):
                 # We are not going to print duplicate values
                 print("\t{} = {}".format(key, step["state"].get(key)))
-        #last_printed.update(step["state"])
+        last_printed.update(step["state"])
 
 
 def spec_to_bdd(model, spec):
@@ -102,7 +102,7 @@ def check_explain_inv_spec(spec):
     # We follow the execution trace in reverse order skipping the last two sets of states
     #   - the last one because it is a false bdd
     #   - the second-to-last one because we picked the last state from it
-    for current_states in reversed(trace[:-2]):
+    for current_states in reversed(trace[:-1]):
         # We get a state that we could have come from
         chosen_state = fsm_model.pick_one_state(current_states.intersection(previous_states))
 
@@ -118,7 +118,7 @@ def check_explain_inv_spec(spec):
             })
 
         # We move to the previous step in the trace...
-        trace.append(trace_node)
+        counter_example.append(trace_node)
         next_state = chosen_state
         previous_states = fsm_model.pre(chosen_state)
     
