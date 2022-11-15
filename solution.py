@@ -1,31 +1,6 @@
 import pynusmv
 import sys
 
-def pretty_print_trace(trace):
-    """
-    A trace is a list of dictionaries. This function prints the 
-    list as nusmv would
-    """
-    
-    last_printed = dict()
-    for i in range(0, len(trace)):
-        step = trace[i]
-        if "inputs" in step:
-            print("-------INPUTS {} ------".format(i + 1))
-            for key in step["inputs"]:
-                if last_printed.get(key) != step["inputs"].get(key):
-                    # We are not going to print duplicate values
-                    print("\t{} = {}".format(key, step["inputs"].get(key)))
-            last_printed.update(step["inputs"])
-
-        print("-------STATE {} ------".format(i + 1))
-        for key in step["state"]:
-            if last_printed.get(key) != step["state"].get(key):
-                # We are not going to print duplicate values
-                print("\t{} = {}".format(key, step["state"].get(key)))
-        last_printed.update(step["state"])
-
-
 def spec_to_bdd(model, spec):
     """
     Return the set of states of model satisfying spec, as a BDD.
@@ -84,49 +59,43 @@ def check_explain_inv_spec(spec):
     # If we are satisfying the specification on every reachable states we just return true
     if is_satisfied:
         return True, None
-    
+
     # Does the model support inputs?
     has_inputs = len(fsm_model.bddEnc.inputsVars) > 0
 
     counter_example = []
     last = fsm_model.pick_one_state(current_states.intersection(negated_spec))
 
-    ##TESTING TRACE##
-    trace_node = {
-            "state": last.get_str_values()
-        }
-    
     # Store the last state obiuvsly
-    counter_example.append(trace_node)
+    counter_example.append(last.get_str_values())
 
+
+    # From the last state we proceed to explore backward the trace that lead us
+    # to the invalid state
     next = last
     last = fsm_model.pre(next)
-
+    # Starting from the second last state since we already picked the last in
+    # the initialization
     for current in reversed(trace[:-1]):
+        # We pick a state that can lead us from the *current* to the *last*
         intersect = current.intersection(last)
         state = fsm_model.pick_one_state(intersect)
 
         if has_inputs:
-            #Get the possible inputs from the current state and the next one
-            #and insert it in the counter_example
+            # Get the possible inputs from the current state and the next one
+            # and insert it in the counter_example
             inputs = fsm_model.get_inputs_between_states(state, next)
-            trace_node.update({
-                "inputs": fsm_model.pick_one_inputs(inputs).get_str_values()
-            })
-            #counter_example.insert(0, fsm_model.pick_one_inputs(inputs).get_str_values())
-            
-        trace_node = {
-            "state": state.get_str_values()
-        }
-                                       
-        #Insert the current state
-        counter_example.insert(0, trace_node)
+            counter_example.insert(0, fsm_model.pick_one_inputs(inputs).get_str_values())
+        else:
+            # If there is no input we insert none
+            counter_example.insert(0, {})
 
-        # counter_example.insert(0, state.get_str_values())
-        
-        #Update the next state with the current one
+        # Insert the current state
+        counter_example.insert(0, state.get_str_values())
+
+        # Update the next state with the current one
         next = state
-        #Find the states that goes into current state
+        # Find the states that goes into current state
         last = fsm_model.pre(next)
 
     return False, counter_example
@@ -149,7 +118,7 @@ for prop in pynusmv.glob.prop_database():
             print("Invariant is respected")
         else:
             print("Invariant is not respected")
-            pretty_print_trace(trace)
+            print(trace)
     else:
         print("Property", spec, "is not an INVARSPEC, skipped.")
 
