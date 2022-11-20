@@ -10,8 +10,8 @@ As mentioned above in the alghortim use the nagated BDD, so it is calculated and
 In our alghoritm we define a region valid if the intersecttion between the current one and the negated tree is empty otherwise the region has at least one state that violate the invariant.
 This verification is implemented in a dedicated function called <em> satisfy_spec </em> that intersect a region with negated tree and return a boolean that indicate if the intersection is empty(true) or not(false).
 To verify that in our model there is no state like that we procede with a state exploartion until we reach a final state or find an illegal state:
-- <strong> final state </strong>: in this case the next state of the current state will be false so by isnot_false we verify this condition.
-- <strong> illegal state </strong>: using the satisfy_spec function we verify that the current state is valid
+- <strong> final state </strong>: in this case the next state of the current state will be false so by <em>isnot_false</em> we verify this condition.
+- <strong> illegal state </strong>: using the <em>satisfy_spec</em> function we verify that the current state is valid
 ## Exploaration of BDD
 The exploration is performed as a loop over the model where at each time we get the current state by method <em>post</em> and to avoid loop or usless analyses storing the states that we already visited.
 To initialaize the exploration we start from the initial state of the model obtained by method <em>init</em>.
