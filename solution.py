@@ -50,9 +50,8 @@ def check_explain_inv_spec(spec):
     while current_states.isnot_false() and satisfy_spec(current_states):
         # We remove the already reached states since it would be useless to check them again
         current_states = fsm_model.post(current_states) - reached
-        # Add the current states to the newly added states
+        # We can consider those states as reached now:
         reached        = reached + current_states
-        # We update the execution trace
         trace.append(current_states)
 
     # We need to check if we have explored all the states or if we have invalidated the specification
@@ -62,43 +61,45 @@ def check_explain_inv_spec(spec):
     if is_satisfied:
         return True, None
 
-    # Does the model support inputs?
+    # Step 4 - Building the counterexample
+
+    invalid_states = current_states.intersection(negated_spec)
+    last_state = fsm_model.pick_one_state(invalid_states)
+
+    # We will insert states at the beginning of the counterexample
+    # The last state will always stay in the last position
+    counter_example = [last_state.get_str_values()]
+
+    # If the model supports inputs we need to consider them
     has_inputs = len(fsm_model.bddEnc.inputsVars) > 0
-
-    counter_example = []
-    last = fsm_model.pick_one_state(current_states.intersection(negated_spec))
-
-    # Store the last state obiuvsly
-    counter_example.append(last.get_str_values())
-
 
     # From the last state we proceed to explore backward the trace that lead us
     # to the invalid state
-    next = last
-    last = fsm_model.pre(next)
+    next = last_state
+    possible_previous_states = fsm_model.pre(next)
     # Starting from the second last state since we already picked the last in
     # the initialization
     for current in reversed(trace[:-1]):
-        # We pick a state that can lead us from the *current* to the *last*
-        intersect = current.intersection(last)
-        state = fsm_model.pick_one_state(intersect)
+        # We pick a state that can lead us from the *current* to the *possible_previous_states*
+        intersect = current.intersection(possible_previous_states)
+        chosen_pre = fsm_model.pick_one_state(intersect)
 
         if has_inputs:
             # Get the possible inputs from the current state and the next one
             # and insert it in the counter_example
-            inputs = fsm_model.get_inputs_between_states(state, next)
+            inputs = fsm_model.get_inputs_between_states(chosen_pre, next)
             counter_example.insert(0, fsm_model.pick_one_inputs(inputs).get_str_values())
         else:
             # If there is no input we insert none
             counter_example.insert(0, {})
 
-        # Insert the current state
-        counter_example.insert(0, state.get_str_values())
+        # Insert the chosen state
+        counter_example.insert(0, chosen_pre.get_str_values())
 
-        # Update the next state with the current one
-        next = state
-        # Find the states that goes into current state
-        last = fsm_model.pre(next)
+        # Update the next state with the chosen one
+        next = chosen_pre
+        # Find the states that goes into chosen state
+        possible_previous_states = fsm_model.pre(next)
 
     return False, counter_example
 
