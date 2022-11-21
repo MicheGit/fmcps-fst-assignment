@@ -1,32 +1,54 @@
 # Algorithm correctness
 
-The alghoritm used to verify the correctness of the specification is based on the Symbolic Breadth-First-Search Algorithm.
+The proposed algorithm aims to proof the correctness of a model described by a <em>NuSMV</em> specification. Its design relies on the <em>Symbolic Breadth-First-Search Algorithm</em>.
 
-Starting from the region of the inital state we move through the regions using the post operation, to check if the spec is respected we verify that the new region dont have any state in common with the negation of the model, their intersection is empty.
+The algorithm walks through the regions of the possible states, starting from that of the inital states, looking for an execution trace that leads to any invalid state (our counterexample). At each step it computes the possible states the model could reach. Finding a single invalid state is sufficient to demonstrate that the model doesn't respect its invariant constraints; this can be computed simply by checking whether the intersection between the possible states and the invalid states is empty or not.
 
-We proceed in this way until we reach a final state or an invalid one and in this case it build the counterexample. Otherwise, it will confirm that the specification is respected.
+In order to implement this algorithm we need a representation of the invariants, expressed as logical formulas, as a set of possible states, and therefore some common operation between sets.
 
 # Implementation
-## Building the `BDD`
+## Step 1 - Building the [`BDD`](https://pynusmv.readthedocs.io/pynusmv.html#pynusmv.dd.BDD)
 
-The function `start` represents the SMV program as an `fsm_model` object, combining it with the given specification it build the `BDD` tree.
+The [`BDD`](https://pynusmv.readthedocs.io/pynusmv.html#pynusmv.dd.BDD) class from the pynusmv library represents regions of possibile states. Its implementation provides us the operations required to implement the algorithm.
 
-As mentioned above in the alghortim use the nagated `BDD`, so it is calculated and stored in the early stage of the computation to not increse its time complexity avoiding reduntant call.
+First, the function translates the safety specification of the loaded model, initally represented a <em>[Finite State Machine](https://pynusmv.readthedocs.io/pynusmv.html#pynusmv.fsm.BddFsm)</em>, into a [`BDD`](https://pynusmv.readthedocs.io/pynusmv.html#pynusmv.dd.BDD) tree. Now, we can use the [`negation operator -`](https://pynusmv.readthedocs.io/pynusmv.html#pynusmv.dd.BDD.not_) to get the tree representing the region of invalid states.
 
-## Definition of unsatisfied specification
+## Step 2 - Defining the safety criteria
 
-In our algorithm we define a region valid if the intersection between the current one and the negated tree is empty; otherwise the region has at least one state that violate the invariant.
+In our algorithm we define a region valid if the intersection between the current one and the region of invalid states is empty; otherwise the region has at least one reachable state violating the safety requirements.
 
-This verification is implemented in a dedicated function, `satisfy_spec`, which intersects a region with negated tree and returns a boolean that indicate if the intersection is empty (true) or not (false).
+This predicate is defined locally by the function `satisfy_spec`, which intersects a region with the region of invalid states and returns `True` only if the result is empty.
 
-To verify that in our model there is no state like that we proceed with a state exploartion until we reach a final state or find an illegal state:
+## Step 3 - Exploring the regions
 
-- <strong> final state </strong>: in this case the next state of the current state will be false so by `isnot_false` we verify this condition.
+### The strategy
+
+In this section we'll dive in the details of the exploration strategy. The idea is simple:
+
+1. starting from the region of the initial states, the algorithm computes the possible states the model can reach after the first system tick;
+2. if one of those states is an invalid one, the safety invariant is not respected;
+3. otherwise, it keeps iterating until we find a final state or an invalid one.
+
+If the property doesn't hold, the algorithm must provide a counterexample in the form of an execution trace, therefore it's useful to keep an execution trace while iterating.
+
+One more problem rises: what if we had a loop between states? The algorithm could iterate forever, covering the same path over and over. In order to avoid such situation, the algorithm needs to ignore the states it had already taken into account.
+
+To sum up, the algoritm will need to consider:
+
+- the states to check;
+- the states already checked;
+- the regions visited along the execution.
+
+### Implementation
+
+<!-- CHECKED UNTIL QUI -->
+
+The algorithm explores the reachable states. It is performed as a loop over the model where at each time we get the current state by method `post` and to avoid loop or usless analysis storing the states that we already visited.
+
+The algorithm proceeds by steps, eventually reaching a final state or an invalid one:
+
+- <strong> final state </strong>: the implementation of the this in this case the next state of the current state will be false so by `isnot_false` we verify this condition.
 - <strong> illegal state </strong>: using the `satisfy_spec` function we verify that the current state is valid
-
-## Exploaration of `BDD`
-
-The exploration is performed as a loop over the model where at each time we get the current state by method `post` and to avoid loop or usless analysis storing the states that we already visited.
 
 To initialaize the exploration we start from the initial state of the model obtained by method `init`.
 

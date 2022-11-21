@@ -23,13 +23,14 @@ def check_explain_inv_spec(spec):
     where keys are state and inputs variable of the loaded SMV model, and values
     are their value.
     """
-
+    # Step 1 - Building the BDD
     # Obtain the representation as a finite state machine
     fsm_model    = pynusmv.glob.prop_database().master.bddFsm
     # Build the BDD using the spec and the FSM
     spec_as_bdd  = spec_to_bdd(fsm_model, spec)
     negated_spec = -spec_as_bdd # We must run faster :)
 
+    # Step 2 - Defining the safety criteria
     # Check if the current states are satisfying the spec
     def satisfy_spec(states):
         # There is any state that is not compliant with the specification
@@ -37,11 +38,12 @@ def check_explain_inv_spec(spec):
         # negation of the specification
         return not states.intersected(negated_spec)
 
-    # The states that we already have explored
+    # Step 3 - Exploring the regions
+    # The states we have already explored
     reached        = fsm_model.init
-    # The states that we are currently exploring
+    # The states we are currently exploring
     current_states = fsm_model.init
-    # The esecution trace
+    # The execution trace
     trace = [reached]
 
     # We perform the states exploration until we cannot reach new states or we falsify the specification
