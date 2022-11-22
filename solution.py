@@ -14,24 +14,23 @@ def check_explain_inv_spec(spec):
     spec, that is, whether all reachable states of the model satisfies spec
     or not. Return also an explanation for why the model does not satisfy
     spec``, if it is the case, or `None otherwise.
-
     The result is a tuple where the first element is a boolean telling
     whether spec is satisfied, and the second element is either None if the
     first element is True``, or an execution of the SMV model violating `spec
     otherwise.
-
     The execution is a tuple of alternating states and inputs, starting
     and ennding with a state. States and inputs are represented by dictionaries
     where keys are state and inputs variable of the loaded SMV model, and values
     are their value.
     """
-
+    # Step 1 - Building the BDD
     # Obtain the representation as a finite state machine
     fsm_model    = pynusmv.glob.prop_database().master.bddFsm
     # Build the BDD using the spec and the FSM
     spec_as_bdd  = spec_to_bdd(fsm_model, spec)
     negated_spec = -spec_as_bdd # We must run faster :)
 
+    # Step 2 - Defining the safety criteria
     # Check if the current states are satisfying the spec
     def satisfy_spec(states):
         # There is any state that is not compliant with the specification
@@ -39,20 +38,20 @@ def check_explain_inv_spec(spec):
         # negation of the specification
         return not states.intersected(negated_spec)
 
-    # The states that we already have explored
+    # Step 3 - Exploring the regions
+    # The states we have already explored
     reached        = fsm_model.init
-    # The states that we are currently exploring
+    # The states we are currently exploring
     current_states = fsm_model.init
-    # The esecution trace
+    # The execution trace
     trace = [reached]
 
     # We perform the states exploration until we cannot reach new states or we falsify the specification
     while current_states.isnot_false() and satisfy_spec(current_states):
         # We remove the already reached states since it would be useless to check them again
         current_states = fsm_model.post(current_states) - reached
-        # Add the current states to the newly added states
+        # We can consider those states as reached now:
         reached        = reached + current_states
-        # We update the execution trace
         trace.append(current_states)
 
     # We need to check if we have explored all the states or if we have invalidated the specification
@@ -62,40 +61,46 @@ def check_explain_inv_spec(spec):
     if is_satisfied:
         return True, None
 
-    # We check if inputs are supported (IVAR)
-    accepts_input = len(fsm_model.bddEnc.inputsVars) > 0
+    # Step 4 - Building the counterexample
 
-    # We pick all the final states that invalidate the spec
-    invalid_final_states = fsm_model.pre(trace[-1])
+    invalid_states = current_states.intersection(negated_spec)
+    last_state = fsm_model.pick_one_state(invalid_states)
 
-    # We put in our execution path one of the invalid states that we reached
-    next_state = fsm_model.pick_one_state(invalid_final_states)
-    last_state = fsm_model.pre(next_state)
-    counter_example = [next_state.get_str_values()]
-    # We follow the execution trace in reverse order
-    for states_from in reversed(trace[:-1]):
-        # We get a state that we could have come from
-        current_state = fsm_model.pick_one_state(states_from.intersection(last_state))
+    # We will insert states at the beginning of the counterexample
+    # The last state will always stay in the last position
+    counter_example = [last_state.get_str_values()]
 
-        # Update the counter example with the current state + transition that got us there
-        counter_example.append(current_state.get_str_values())
-        # FIXME: This shouldent crash
-        if accepts_input:
-            try:
-                inputs = fsm_model.get_inputs_between_states(current, last_state)
-                input_bello_figo_gu = fsm_model.pick_one_inputs(inputs)
-                counter_example.append(input_bello_figo_gu.get_str_values())
-                print("Ok")
-            except:
-                print("Err")
+    # If the model supports inputs we need to consider them
+    has_inputs = len(fsm_model.bddEnc.inputsVars) > 0
 
-        # Update the current state
-        next_state = current_state
-        last_state = fsm_model.pre(current_state)
-    
-    # We need to reverse the counterexample list
-    counter_example = list(reversed(counter_example))
-    print(len(counter_example))
+    # From the last state we proceed to explore backward the trace that lead us
+    # to the invalid state
+    next = last_state
+    possible_previous_states = fsm_model.pre(next)
+    # Starting from the second last state since we already picked the last in
+    # the initialization
+    for current in reversed(trace[:-1]):
+        # We pick a state that can lead us from the *current* to the *possible_previous_states*
+        intersect = current.intersection(possible_previous_states)
+        chosen_pre = fsm_model.pick_one_state(intersect)
+
+        if has_inputs:
+            # Get the possible inputs from the current state and the next one
+            # and insert it in the counter_example
+            inputs = fsm_model.get_inputs_between_states(chosen_pre, next)
+            counter_example.insert(0, fsm_model.pick_one_inputs(inputs).get_str_values())
+        else:
+            # If there is no input we insert none
+            counter_example.insert(0, {})
+
+        # Insert the chosen state
+        counter_example.insert(0, chosen_pre.get_str_values())
+
+        # Update the next state with the chosen one
+        next = chosen_pre
+        # Find the states that goes into chosen state
+        possible_previous_states = fsm_model.pre(next)
+
     return False, counter_example
 
 if len(sys.argv) != 2:
