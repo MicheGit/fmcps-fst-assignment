@@ -18,8 +18,13 @@ First, the function translates the safety specification of the loaded model, ini
 In our algorithm we define a region valid if the intersection between the current one and the region of invalid states is empty; otherwise the region has at least one reachable state violating the safety requirements.
 
 <p align="center">
-  <img src="/images/Reachable_invalid_states.svg"/>
+  <figure>
+      <img src="/images/Reachable_invalid_states.svg"
+          alt="Reachable invalid states">
+      <figcaption>Reachable invalid states</figcaption>
+  </figure>
 </p>
+
 
 
 
