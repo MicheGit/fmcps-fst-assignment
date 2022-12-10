@@ -17,7 +17,8 @@ First, the function translates the safety specification of the loaded model, ini
 
 In our algorithm we define a region valid if the intersection between the current one and the region of invalid states is empty; otherwise the region has at least one reachable state violating the safety requirements.
 
-![example 1{caption=Reachable invalid states}](/images/Reachable_invalid_states.svg)
+![alt text for screen readers](/images/Reachable_invalid.png)
+
 
 This predicate is defined locally by the function `satisfy_spec`, which intersects a region with the region of invalid states and returns `True` only if the result is empty.
 
