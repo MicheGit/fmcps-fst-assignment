@@ -79,9 +79,11 @@ The main loop considers each region in the trace in reversed order, skipping the
 <p align="center">
   <img src="/images/Counter_example_1.svg"/>
 </p>
+
 2. entering the loop, the `current` variable represents the second-to-last region. In other words, this region contains all and only the states that could be in the second-to-last position in the path;
 3. the function randomly picks a state that is both in that region (`current`) and in the possible previous states. If there were inputs between such chosen predecessor and the last one (remember that `next` is the final state in this example) those will be added to the counterexample, otherwise an empty dictionary;
 4. the function appends to the head of the list the chosen predecessor and then updates the variables according to the next iteration.
+
 <p align="center">
   <img src="/images/Counter_example_2.svg"/>
 </p>
