@@ -19,7 +19,7 @@ In our algorithm we define a region valid if the intersection between the curren
 
 <p align="center">
   <img src="/images/Reachable_invalid_states.svg"
-  alt="Reachable invalid states">
+       alt="Reachable invalid states">
 </p>
 
 
@@ -40,7 +40,8 @@ In this section we'll dive in the details of the exploration strategy. The idea 
 3. otherwise, it keeps iterating until we find a final state or an invalid one.
 
 <p align="center">
-  <img src="/images/Reachable_states.svg"/>
+  <img src="/images/Reachable_states.svg"
+       alt="Reachable states">
 </p>
 
 If the property doesn't hold, the algorithm must provide a counterexample in the form of a list of states; for that reason the function will keep note of all the possible execution paths while iterating.
@@ -79,7 +80,8 @@ The main loop considers each region in the trace in reversed order, skipping the
 
 1. before the first iteration, the `next` variable is the final state of our counterexample and the `possible_previous_states` variable contains all the possible states that could lead to the last state; 
 <p align="center">
-  <img src="/images/Counter_example_1.svg"/>
+  <img src="/images/Counter_example_1.svg"
+       alt="Initialization phase for the counter example">
 </p>
 
 2. entering the loop, the `current` variable represents the second-to-last region. In other words, this region contains all and only the states that could be in the second-to-last position in the path;
@@ -87,7 +89,8 @@ The main loop considers each region in the trace in reversed order, skipping the
 4. the function appends to the head of the list the chosen predecessor and then updates the variables according to the next iteration.
 
 <p align="center">
-  <img src="/images/Counter_example_2.svg"/>
+  <img src="/images/Counter_example_2.svg"
+       alt="Iteration for the counter example">
 </p>
 
 It's easy to see that this behaviour holds for any subsequent iteration. If the trace had only one region (if the system could be configured invalidly) then the loop is skipped: the counterexample would contain only the last state (as it would have been initialized). Since the function initializes the execution trace as a singleton, it's never the case that the trace is an empty list.
