@@ -18,7 +18,7 @@ First, the function translates the safety specification of the loaded model, ini
 In our algorithm we define a region valid if the intersection between the current one and the region of invalid states is empty; otherwise the region has at least one reachable state violating the safety requirements.
 
 <p align="center">
-  <img src="/images/Reachable_invalid_states.png"/>
+  <img src="/images/Reachable_invalid_states.svg"/>
 </p>
 
 
@@ -38,7 +38,7 @@ In this section we'll dive in the details of the exploration strategy. The idea 
 3. otherwise, it keeps iterating until we find a final state or an invalid one.
 
 <p align="center">
-  <img src="/images/Reachable_states.png"/>
+  <img src="/images/Reachable_states.svg"/>
 </p>
 
 If the property doesn't hold, the algorithm must provide a counterexample in the form of a list of states; for that reason the function will keep note of all the possible execution paths while iterating.
