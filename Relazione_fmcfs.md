@@ -75,10 +75,16 @@ Before starting to build the reverse path from the last reached state we verify 
 
 The main loop considers each region in the trace in reversed order, skipping the last one. Here we find useful to explain how the loop deals the first iteration, as an example:
 
-1. before the first iteration, the `next` variable is the final state of our counterexample and the `possible_previous_states` variable contains all the possible states that could lead to the last state;
+1. before the first iteration, the `next` variable is the final state of our counterexample and the `possible_previous_states` variable contains all the possible states that could lead to the last state; 
+<p align="center">
+  <img src="/images/Counter_example_1.svg"/>
+</p>
 2. entering the loop, the `current` variable represents the second-to-last region. In other words, this region contains all and only the states that could be in the second-to-last position in the path;
 3. the function randomly picks a state that is both in that region (`current`) and in the possible previous states. If there were inputs between such chosen predecessor and the last one (remember that `next` is the final state in this example) those will be added to the counterexample, otherwise an empty dictionary;
 4. the function appends to the head of the list the chosen predecessor and then updates the variables according to the next iteration.
+<p align="center">
+  <img src="/images/Counter_example_2.svg"/>
+</p>
 
 It's easy to see that this behaviour holds for any subsequent iteration. If the trace had only one region (if the system could be configured invalidly) then the loop is skipped: the counterexample would contain only the last state (as it would have been initialized). Since the function initializes the execution trace as a singleton, it's never the case that the trace is an empty list.
 
