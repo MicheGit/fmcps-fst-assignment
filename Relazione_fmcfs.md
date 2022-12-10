@@ -37,6 +37,10 @@ In this section we'll dive in the details of the exploration strategy. The idea 
 2. if one of those states is an invalid one, the safety invariant is not respected;
 3. otherwise, it keeps iterating until we find a final state or an invalid one.
 
+<p align="center">
+  <img src="/images/Reachable_states.png"/>
+</p>
+
 If the property doesn't hold, the algorithm must provide a counterexample in the form of a list of states; for that reason the function will keep note of all the possible execution paths while iterating.
 
 One more problem rises: what if we had a loop between states? The algorithm could iterate forever, covering the same path over and over. In order to avoid such situation, the algorithm needs to ignore the states it had already taken into account.
