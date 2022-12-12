@@ -1,4 +1,4 @@
-# Algorithm correctness
+# Overview
 
 The proposed algorithm aims to check whether a model described by a <em>NuSMV</em> specification respects its invariants or not. In the latter case it also must provide an execution sequence that violates at least one invariant. Its design relies on the <em>Symbolic Breadth-First-Search Algorithm</em>.
 
@@ -97,11 +97,80 @@ It's easy to see that this behaviour holds for any subsequent iteration. If the 
 
 At this point it is sufficient to return the tuple `(False, counter_example)` as required.
 
-# Conclusion
+# Algorithm correctness
+
+The formal proof follows the algorithm as implemented in the function `check_explain_inv_spec` in the file `solution.py`, and consists in a close look up into the details of the two main loops of the algorithm.
+
+## First loop (step 3)
+
+The first loop act over:
+- the `current_states` variable, a [`BDD`](https://pynusmv.readthedocs.io/pynusmv.html#pynusmv.dd.BDD) representing the region of the new found reachable states;
+- the `reached` variable, representing the region of all the already reached states.
+- the `trace` variable, an ordered list of the regions reached for each transition simulated.
+
+The **loop condition** is verified when `current_states` is not empty and does not overlap the invalid region, i.e. there is no invalid state in it.
+
+The **loop invariant** for each variable at the iteration *i* is:
+- in `current_states` there are only states reachable from the region considered in the iteration *i-1* such that were not reached by any iteration *j < i*;
+- `reached` represents all the states reached in all the previous iterations;
+- `trace` is a list with *i+1* nodes s.t. the node *k* holds the states reached by the iteration *k*.
+
+The proof follows by induction:
+- **Base case** - the base case depicts the state of the algorithm before the first loop iteration, but conceptually after having reached the initial states:
+  - `current_states = fsm_model.init` - the invariant holds vacuosly, because the algorithm performed no step of the loop and those states are the initial ones;
+  - `reached = fsm_model.init` - the invariant holds because in this situation the only reached states are the initial ones;
+  - `trace = [reached]` - the invariant holds for the same reason as above.
+- **Inductive case**:
+  - `current_states = fsm_model.post(current_states) - reached` - the `post` function returns the states reachable from the current region. Since by inductive hypothesis `reached` represents all previously met states, the difference between the new ones and `reached` meets the invariant condition for `current_states`;
+  - `reached = reached + current_states` - by i.h., `reached` represents all the states reached by all the *i - 1* previous iterations, therefore adding the current ones respects the invariant for the *i*th iteration;
+  - `trace.append(current_states)` - similarly as above, by i.h. `trace` is a well formed list of *i* nodes. Therefore, appending the current states as last element is enough to keep holding the invariant, since the current states are the ones reached from the *i*th node of `trace`.
+
+**Post condition** - There are two main cases that falsify the loop condition:
+- 1: `current_states` is empty, therefore the loop considered at least once all the reachable states from the initial configuration, and none of them violated the requirements. In such case, the algorithm returns the `True, None` tuple. 
+- 2: `current_states` is not empty and there is an overlap with the invalid states. In such case, since the invariant holds, we have a `trace` that is a list with *i+1* nodes, where *i* is the number of the loops performed, i.e. the number of transitions that would need in order to reach an invalid state; theremore each node *k* of the `trace` has a [`BDD`](https://pynusmv.readthedocs.io/pynusmv.html#pynusmv.dd.BDD) that represents the states reachable after *k-1* transitions, in particular, reachable from the *k-1*th node. So, among those states there are the ones that lead to the invalid one(s) in the last node.
+
+**Termination** - This always converges because:
+- in the first case the algorithm visited all the reachable states only once. Since the number of such states is finite, the algorithm eventually converges;
+- in the second case the loop quits programmatically finding a counterexample.
+
+## Second loop (Step 4)
+
+The second loop acts over:
+- a variable `counter_example`, which is a list of states (represented as a python dictionary), and it represents an execution trace that represents the sequence of states ending in an invalid one;
+- a variable `next`, that represents the state picked in the current iteration;
+- a variable `possible_previous_states` that enumerates all the possible previous steps.
+
+The second loop executes one iteration step for each node of the found `trace` backwards, minus the last one which is used for the initialization. We can see the `trace` as a counterexample we know
+- the number of transitions required;
+- the possible states after (and before) each transition.
+
+Thus, the loop condition can be informally expressed as "loop until all the trace steps are specified".
+
+**Loop invariant**:
+- `counter_example` holds all the states between the current `trace` node and the final, invalid, state;
+- `next` is the state picked in the current iteration;
+- `possible_previous_states` represents the states that could led to `next` in one transition.
+
+The proof follows by induction:
+**Base case** - such that the last (invalid) state has been taken into account yet:
+- `counter_example = [last_state.get_str_values()]` - the invariant holds since `last_state` is a state picked from the reachable states after the final transition (the last region in `trace`) intersected with the invalid states (so we are sure that is invalid) and since the 
+- `next = last_state` - the invariant holds because, for the same reasons as above, `last_state` is the legitimate last state of the counter example;
+- `possible_previous_states = fsm_model.pre(next)` - the invariant holds trivially.
+
+**Inductive case** - in the loop body a predecessor of `next` is randomly chosen (`chosen_pre`) among all the states of the current `trace` node and the `possible_previous_states`. Then the counterexample is updated inserting as head `inputs`, a possible set of inputs that can lead from `chosen_pre` to `next` when the model accepts inputs, otherwise it is an empty python dictionary. By i.h., `counter_example` contains all the transitions and inputs that can lead from `next` to the last state; after that operation `counter_example` contains also the inputs accepted by the current state (`next`):
+- `counter_example.insert(0, chosen_pre.get_str_values())` - since all the precondition listed above, the counterexample now holds all the transitions from `chosen_pre` to the last state;
+- `next = chosen_pre` - `next` is the state to be considered in the next iteration, which is the `trace` node before this one;
+- `possible_previous_states = fsm_model.pre(next)` - it holds trivially.
+
+**Post condition**:
+Since the only way to exit the loop is running out of nodes in the `trace`, `counter_example` contains a trace that starts from an initial state (since the initial state has to be picked from the first node of `trace`) end ends up in the last state (the invalid one). Since all those states are picked from a region in the `trace`, the so found counterexample is proven to be the same that led to the invalid state in the first place.
+
+# Recap
 
 In summary, this proposal of a <em>Symbolic Breadth-First-Search Algorithm</em> implementation consists in two main sections:
 1. the first one follows all possible execution paths that the machine could run starting from the initial state,
 2. and the second one retraces the steps of the first part, starting from one of the found invalid states and narrowing the possible paths that could led to it.
+
 
 
 
